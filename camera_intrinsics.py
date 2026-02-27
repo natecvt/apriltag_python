@@ -22,7 +22,7 @@ def calibrate(path: str | PathLike):
     nimgs = params["num_imgs"]
     tct = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
-    worldPtsCurrent = np.zeros((rows*cols,3), np.float64)
+    worldPtsCurrent = np.zeros((rows*cols,3), np.float32)
     worldPtsCurrent[:,:2] = np.mgrid[0:rows, 0:cols].T.reshape(-1,2)
     worldPts = []
     imgPts = []
@@ -36,15 +36,21 @@ def calibrate(path: str | PathLike):
     cv2.waitKey(2000)
 
     counter = 0
-    while not counter == nimgs or not keyboard.is_pressed("esc"):
-        frame = cap.read()
+    while not counter >= nimgs and not keyboard.is_pressed("esc"):
+        ret, frame = cap.read()
+
+        if ret == False:
+            continue
         
         image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         cornersFound, cornersOrg = cv2.findChessboardCorners(image, (rows, cols), None)
+        h, w = image.shape[:2]
 
         if cornersFound == True:
+            print("Checkerboard Found")
             worldPts.append(worldPtsCurrent)
-            cv2.rectangle(frame, (0,0), image.shape, (0,255,0), 7)
+
+            cv2.rectangle(frame, (0,0), (w - 1, h - 1), (0,255,0), 7)
             
             cornersRefined = cv2.cornerSubPix(image, cornersOrg, (11,11), (-1,-1), tct)
             cv2.drawChessboardCorners(frame, (rows, cols), cornersRefined, cornersFound)
@@ -52,7 +58,8 @@ def calibrate(path: str | PathLike):
 
             counter = counter + 1
         else:
-            cv2.rectangle(frame, (0,0), image.shape, (255,0,0), 7)
+            print("Checkerboard Not Found")
+            cv2.rectangle(frame, (0,0), (w - 1, h - 1), (0,0,255), 7)
 
         cv2.imshow("Calibration", frame)
         cv2.waitKey(500)
@@ -73,20 +80,21 @@ def calibrate(path: str | PathLike):
     
     print("Writing Camera Matrix Values:\n", camMat)
 
-    with open(path, "w") as stream:
-        params["intrinsics"]["f"] = camMat[0][0]
-        params["intrinsics"]["cx"] = camMat[0][2]
-        params["intrinsics"]["cy"] = camMat[1][2]
+    params["intrinsics"]["fx"] = float(camMat[0,0])
+    params["intrinsics"]["fy"] = float(camMat[1,1])
+    params["intrinsics"]["cx"] = float(camMat[0,2])
+    params["intrinsics"]["cy"] = float(camMat[1,2])
 
-        params["intrinsics"]["k1"] = distCoeffs[0]
-        params["intrinsics"]["k2"] = distCoeffs[1]
-        params["intrinsics"]["p1"] = distCoeffs[2]
-        params["intrinsics"]["p2"] = distCoeffs[3]
-        params["intrinsics"]["k3"] = distCoeffs[4]
-        
+    params["intrinsics"]["k1"] = float(distCoeffs[0,0])
+    params["intrinsics"]["k2"] = float(distCoeffs[0,1])
+    params["intrinsics"]["p1"] = float(distCoeffs[0,2])
+    params["intrinsics"]["p2"] = float(distCoeffs[0,3])
+    params["intrinsics"]["k3"] = float(distCoeffs[0,4])
+
+    with open(path, "w") as stream:
         yaml.dump(params, stream, sort_keys=False)
 
     print("Calibration Complete")
 
 if __name__ == "__main__":
-    calibrate("config.yaml")
+    calibrate("apriltag_python/config.yaml")
