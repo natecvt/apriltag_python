@@ -19,15 +19,13 @@ def load_config(path: str | PathLike):
 
         return params
 
-def init_capture_apriltags(confPath: str | PathLike) -> list[cv2.VideoCapture, Detector]:
+def init_capture_apriltags(confPath: str | PathLike, params) -> list[cv2.VideoCapture, Detector]:
 
     cap = cv2.VideoCapture(0)
 
     if not cap.isOpened():
         print("Camera not found")
         exit(1)
-
-    params = load_config(confPath)
 
     param_list = [params["family"], 
                   params["nthreads"], 
@@ -67,8 +65,18 @@ def capture_image(cap: cv2.VideoCapture) -> cv2.typing.MatLike | None:
     image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     return image
     
-def detect_apriltags(image: cv2.typing.MatLike, detector: Detector):
-    detector.detect(image)
+def detect_apriltags(image: cv2.typing.MatLike, detector: Detector, params):
+
+    cam_vals = (params["intrinsics"]["fx"],
+                params["intrinsics"]["fy"],
+                params["intrinsics"]["cx"],
+                params["intrinsics"]["cy"])
+
+    tags = detector.detect(image, True, cam_vals, params["tag_size"])
+
+    print(tags)
+
+    
 
 def main():
     init_capture_apriltags("config.yaml")
