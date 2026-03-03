@@ -19,7 +19,7 @@ def load_config(path: str | PathLike):
 
         return params
 
-def init_capture_apriltags(confPath: str | PathLike, params) -> list[cv2.VideoCapture, Detector]:
+def init_capture_apriltags(params) -> list[cv2.VideoCapture, Detector]:
 
     cap = cv2.VideoCapture(0)
 
@@ -65,21 +65,36 @@ def capture_image(cap: cv2.VideoCapture) -> cv2.typing.MatLike | None:
     image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     return image
     
-def detect_apriltags(image: cv2.typing.MatLike, detector: Detector, params):
+def detect_apriltags(image: cv2.typing.MatLike, detector: Detector, params) -> list:
 
     cam_vals = (params["intrinsics"]["fx"],
                 params["intrinsics"]["fy"],
                 params["intrinsics"]["cx"],
                 params["intrinsics"]["cy"])
-
+    
     tags = detector.detect(image, True, cam_vals, params["tag_size"])
-
-    print(tags)
+    return tags
 
     
 
 def main():
-    init_capture_apriltags("config.yaml")
+    params = load_config("config.yaml")
+    cap, det = init_capture_apriltags(params)
+    img = capture_image(cap)
+    frame = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    tags = detect_apriltags(img, det, params)
+    for tag in tags:
+        p1 = (int(tag.corners[0][0]), int(tag.corners[0][1]))
+        p2 = (int(tag.corners[1][0]), int(tag.corners[1][1]))
+        p4 = (int(tag.corners[3][0]), int(tag.corners[3][1]))
+        cv2.line(frame, p1, p2, (255, 0, 0), 3)
+        cv2.line(frame, p1, p4, (0, 255, 0), 3)
+
+        print("tag_id " + str(tag.tag_id) + " with pose_t:")
+        print(tag.pose_t)
+    
+    
+    cv2.imwrite("img.png", frame)
 
 if __name__ == "__main__":
     main()
