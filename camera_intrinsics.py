@@ -97,4 +97,4 @@ def calibrate(path: str | PathLike):
     print("Calibration Complete")
 
 if __name__ == "__main__":
-    calibrate("apriltag_python/config.yaml")
+    calibrate("config.yaml")

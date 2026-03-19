@@ -50,6 +50,7 @@ def init_capture_apriltags(params) -> list[cv2.VideoCapture, Detector]:
                         debug=param_list[6])
     
     if detector is None:
+        print("Detector failed to initialize")
         exit(3)
 
     print("Apriltag detector initialized")
@@ -65,17 +66,38 @@ def capture_image(cap: cv2.VideoCapture) -> cv2.typing.MatLike | None:
     image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     return image
     
-def detect_apriltags(image: cv2.typing.MatLike, detector: Detector, params) -> list:
-
+def detect_apriltags(image: cv2.typing.MatLike, detector: Detector, params) -> list | None:
     cam_vals = (params["intrinsics"]["fx"],
                 params["intrinsics"]["fy"],
                 params["intrinsics"]["cx"],
                 params["intrinsics"]["cy"])
     
     tags = detector.detect(image, True, cam_vals, params["tag_size"])
+
+    if (tags is None or len(tags) == 0):
+        print("No tags detected")
+        return None
+
     return tags
 
-    
+def get_pose(tags: list) -> list | None:
+    if (tags is None):
+        print("Tags empty, returning")
+        return None
+
+    best = None
+    first = True
+
+    # pick the tag closest to the camera, for least absolute error
+    for tag in tags:
+        current_norm = np.linalg.norm(tag.pose_t)
+
+        # short circuits on first run, so best doesn't have to exist yet
+        if (first or current_norm < np.linalg.norm(best.pose_t)):
+            first = False
+            best = tag
+
+    return best.pose_t
 
 def main():
     params = load_config("config.yaml")
@@ -90,9 +112,11 @@ def main():
         cv2.line(frame, p1, p2, (255, 0, 0), 3)
         cv2.line(frame, p1, p4, (0, 255, 0), 3)
 
+
         print("tag_id " + str(tag.tag_id) + " with pose_t:")
         print(tag.pose_t)
     
+    print(get_pose(tags))
     
     cv2.imwrite("img.png", frame)
 
